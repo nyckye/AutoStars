@@ -1,0 +1,14 @@
+# HTTP клиент для Fragment API
+httpx>=0.24.0
+
+# Работа с TON блокчейном
+tonutils>=0.1.0
+
+# Telegram Bot Framework
+aiogram>=3.0.0
+
+# Переменные окружения (опционально)
+python-dotenv>=1.0.0
+
+# Асинхронная работа
+asyncio>=3.4.3

@@ -4,14 +4,14 @@ import re
 import httpx
 from tonutils.client import TonapiClient
 from tonutils.wallet import WalletV5R1
-from config import API_TON, MNEMONIC, DATA, FRAGMENT_HASH, FRAGMENT_PUBLICKEY, FRAGMENT_WALLETS, FRAGMENT_ADDRES
+import config
 
-def get_cookies(DATA):
+def get_cookies():
     return {
-        "stel_ssid": DATA.get("stel_ssid", ""),
-        "stel_dt": DATA.get("stel_dt", ""),
-        "stel_ton_token": DATA.get("stel_ton_token", ""),
-        "stel_token": DATA.get("stel_token", ""),
+        "stel_ssid": config.DATA.get("stel_ssid", ""),
+        "stel_dt": config.DATA.get("stel_dt", ""),
+        "stel_ton_token": config.DATA.get("stel_ton_token", ""),
+        "stel_token": config.DATA.get("stel_token", ""),
     }
 
 def fix_base64_padding(b64_string: str) -> str:
@@ -21,26 +21,28 @@ def fix_base64_padding(b64_string: str) -> str:
     return b64_string
 
 class FragmentClient:
-    URL = f"https://fragment.com/api?hash={FRAGMENT_HASH}"
+    def get_url(self):
+        return f"https://fragment.com/api?hash={config.FRAGMENT_HASH}"
 
     async def fetch_recipient(self, query):
         data = {"query": query, "method": "searchStarsRecipient"}
         async with httpx.AsyncClient() as client:
-            response = await client.post(self.URL, cookies=get_cookies(DATA), data=data)
+            response = await client.post(self.get_url(), cookies=get_cookies(), data=data)
+            logging.info(f"Fragment API URL: {self.get_url()}")
             return response.json().get("found", {}).get("recipient")
 
     async def fetch_req_id(self, recipient, quantity):
         data = {"recipient": recipient, "quantity": quantity, "method": "initBuyStarsRequest"}
         async with httpx.AsyncClient() as client:
-            response = await client.post(self.URL, cookies=get_cookies(DATA), data=data)
+            response = await client.post(self.get_url(), cookies=get_cookies(), data=data)
             return response.json().get("req_id")
 
     async def fetch_buy_link(self, recipient, req_id, quantity):
         data = {
-            "address": f"{FRAGMENT_ADDRES}", 
+            "address": f"{config.FRAGMENT_ADDRES}", 
             "chain": "-239",
-            "walletStateInit": f"{FRAGMENT_WALLETS}",
-            "publicKey": f"{FRAGMENT_PUBLICKEY}",
+            "walletStateInit": f"{config.FRAGMENT_WALLETS}",
+            "publicKey": f"{config.FRAGMENT_PUBLICKEY}",
             "features": ["SendTransaction", {"name": "SendTransaction", "maxMessages": 255}],
             "maxProtocolVersion": 2,
             "platform": "iphone", 
@@ -60,7 +62,7 @@ class FragmentClient:
             "x-requested-with": "XMLHttpRequest"
         }
         async with httpx.AsyncClient() as client:
-            response = await client.post(self.URL, headers=headers, cookies=get_cookies(DATA), data=data)
+            response = await client.post(self.get_url(), headers=headers, cookies=get_cookies(), data=data)
             json_data = response.json()
             if json_data.get("ok") and "transaction" in json_data:
                 transaction = json_data["transaction"]
@@ -69,8 +71,8 @@ class FragmentClient:
 
 class TonTransaction:
     async def send_ton_transaction(self, recipient, amount_nano, la, stars):
-        client = TonapiClient(api_key=API_TON, is_testnet=False)
-        wallet, public_key, private_key, mnemonic = WalletV5R1.from_mnemonic(client, MNEMONIC)
+        client = TonapiClient(api_key=config.API_TON, is_testnet=False)
+        wallet, public_key, private_key, mnemonic = WalletV5R1.from_mnemonic(client, config.MNEMONIC)
 
         if not recipient or amount_nano <= 0:
             return None
